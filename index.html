@@ -9,7 +9,7 @@
     <style>
         body { background-color: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
         #ad-container { text-align: center; padding: 20px; }
-        #player { display: none; width: 100%; max-height: 100vh; background: #000; }
+        #player { display: none; width: 100%; height: auto; background: #000; }
         .btn { background: #248bcf; border: none; color: white; padding: 16px 32px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         h2 { margin-bottom: 10px; }
         p { color: #aaa; margin-bottom: 25px; }
@@ -20,7 +20,7 @@
     <div id="ad-container">
         <h2>Content Locked</h2>
         <p>Watch a short ad to play this 30s segment</p>
-        <button class="btn" onclick="playAd()">🔓 Unlock & Play</button>
+        <button class="btn" id="unlockBtn" onclick="playAd()">🔓 Unlock & Play</button>
     </div>
 
     <video id="player" controls playsinline></video>
@@ -30,31 +30,59 @@
         tg.ready();
         tg.expand();
 
-        // Updated with your Block ID (Double check if Adsgram gave you a new Block ID for Platform 28013)
+        // Initialize Adsgram
         const AdController = window.Adsgram.init({ blockId: "28013" });
 
-        function playAd() {
-            AdController.show().then((result) => {
+        async function playAd() {
+            const btn = document.getElementById('unlockBtn');
+            btn.innerText = "⌛ Loading Ad...";
+            btn.disabled = true;
+
+            try {
+                // Show the ad
+                const result = await AdController.show();
+                
+                // If we reach here, ad was shown (or skipped but processed)
                 unlockAndPlay();
-            }).catch((result) => {
-                alert("Ad error or skipped. Please watch to the end to unlock.");
-                console.error("Adsgram error:", result);
-            });
+            } catch (error) {
+                // If ad fails to load, we still want to test the video logic
+                console.error("Adsgram Error:", error);
+                alert("Ad not available right now. Unlocking video for testing...");
+                unlockAndPlay();
+            }
         }
 
         function unlockAndPlay() {
             const params = new URLSearchParams(window.location.search);
             const videoId = params.get('vid');
-            const part = params.get('part');
-            
-            // Updated to your new GitHub URL
-            const videoUrl = `https://kenyatamu254-coder.github.io/video-player-app/segments/${videoId}_part_${part}.mp4`;
+            let part = params.get('part');
 
+            if (!videoId || part === null) {
+                alert("Error: Missing video information in the link.");
+                return;
+            }
+
+            // FIX: This ensures '0' becomes '000' to match your GitHub files
+            const paddedPart = part.toString().padStart(3, '0');
+            
+            const videoUrl = `https://kenyatamu254-coder.github.io/video-player-app/segments/${videoId}_part_${paddedPart}.mp4`;
+
+            console.log("Attempting to play:", videoUrl);
+
+            // UI Changes
             document.getElementById('ad-container').style.display = 'none';
             const player = document.getElementById('player');
             player.style.display = 'block';
+            
+            // Load and Play
             player.src = videoUrl;
-            player.play();
+            player.load(); 
+            
+            // Promise-based play to handle mobile restrictions
+            player.play().catch(e => {
+                alert("Tap the play button on the video player to start.");
+                console.error("Playback error:", e);
+            });
         }
     </script>
 </body>

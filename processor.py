@@ -42,22 +42,27 @@ async def process_video(video_path):
     print("☁️ Syncing with GitHub...")
     os.chdir(GITHUB_REPO_PATH)
     try:
+        # Step 1: Pull first to get changes from GitHub (like your index.html edit)
+        print("🔄 Pulling latest changes from GitHub...")
+        subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
+        
+        # Step 2: Add, Commit, and Push
+        print("📤 Uploading new segments...")
         subprocess.run(['git', 'add', '.'], check=True)
         subprocess.run(['git', 'commit', '-m', f'Segments for {video_id}'], check=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
     except Exception as e:
         print(f"❌ Git Upload Failed: {e}")
+        # We return early because if GitHub push fails, the links in Telegram won't work yet
         return
 
     # Send to Telegram Channel
     print("📤 Posting to Telegram...")
     for i, part_file in enumerate(parts):
-        # Extract part number (e.g., 000, 001) - keeping it raw for the URL
-        # Our HTML padStart fix handles the rest
+        # Extract part number (e.g., 000, 001)
         raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
         
-        # We convert to int and back to string to remove leading zeros for the URL 
-        # (e.g., 001 becomes 1), which is cleaner for the URL parameters
+        # Convert to int and back to string to remove leading zeros for the URL 
         part_num_clean = str(int(raw_part_num))
         
         link = f"{MINI_APP_URL}?vid={video_id}&part={part_num_clean}"
@@ -78,20 +83,21 @@ async def process_video(video_path):
             print(f"✅ Posted Part {i+1}/{len(parts)}")
             
             # --- ANTI-FLOOD DELAY ---
-            # Telegram allows ~20 messages per minute in channels. 
-            # 2-3 seconds is the "sweet spot" for safety.
+            # Wait 2.5 seconds to keep Telegram happy
             await asyncio.sleep(2.5) 
             
         except Exception as e:
             print(f"⚠️ Error sending part {i+1}: {e}")
-            # If we hit a serious flood error, wait longer
             if "RetryAfter" in str(e):
+                # If we get a flood warning, wait 30 seconds
+                print("⏳ Flood limit hit. Sleeping for 30s...")
                 await asyncio.sleep(30)
     
     await bot.session.close()
     print("✅ All tasks complete! Check your Telegram channel.")
 
 if __name__ == "__main__":
+    # Change "my_video.mp4" to your actual filename if it's different
     file_to_split = "my_video.mp4" 
     target_path = os.path.join(GITHUB_REPO_PATH, file_to_split)
     
