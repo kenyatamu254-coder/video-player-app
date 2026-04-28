@@ -3,7 +3,7 @@ import subprocess
 import time
 import asyncio
 from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 # --- CONFIGURATION ---
 TOKEN = '8738639794:AAHhkDQMRQQ9yCpnx1IiG5RKCwu7PwC7qYc' 
@@ -42,7 +42,7 @@ async def process_video(video_path):
     print("☁️ Syncing with GitHub...")
     os.chdir(GITHUB_REPO_PATH)
     try:
-        # Step 1: Pull first to get changes from GitHub (like your index.html edit)
+        # Step 1: Pull first to get changes from GitHub
         print("🔄 Pulling latest changes from GitHub...")
         subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
         
@@ -53,51 +53,51 @@ async def process_video(video_path):
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
     except Exception as e:
         print(f"❌ Git Upload Failed: {e}")
-        # We return early because if GitHub push fails, the links in Telegram won't work yet
         return
 
     # Send to Telegram Channel
     print("📤 Posting to Telegram...")
     for i, part_file in enumerate(parts):
-        # Extract part number (e.g., 000, 001)
+        # Extract part number
         raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
-        
-        # Convert to int and back to string to remove leading zeros for the URL 
         part_num_clean = str(int(raw_part_num))
         
+        # This link now targets your Mini App
         link = f"{MINI_APP_URL}?vid={video_id}&part={part_num_clean}"
         
+        # --- FIX: USE WEB_APP INSTEAD OF URL ---
+        # This makes it open INSIDE Telegram
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
-                InlineKeyboardButton(text="🔓 Watch Now", url=link)
+                InlineKeyboardButton(
+                    text="🎬 Watch Inside Bot", 
+                    web_app=WebAppInfo(url=link)
+                )
             ]]
         )
         
         try:
             await bot.send_message(
                 chat_id=CHANNEL_ID,
-                text=f"🎬 **Part {i+1}**\n\nTap below to watch this segment! ⚡️",
+                text=f"📺 **Part {i+1}**\n\nTap below to watch without leaving Telegram! ⚡️",
                 reply_markup=keyboard,
                 parse_mode="Markdown"
             )
             print(f"✅ Posted Part {i+1}/{len(parts)}")
             
             # --- ANTI-FLOOD DELAY ---
-            # Wait 2.5 seconds to keep Telegram happy
             await asyncio.sleep(2.5) 
             
         except Exception as e:
             print(f"⚠️ Error sending part {i+1}: {e}")
             if "RetryAfter" in str(e):
-                # If we get a flood warning, wait 30 seconds
                 print("⏳ Flood limit hit. Sleeping for 30s...")
                 await asyncio.sleep(30)
     
     await bot.session.close()
-    print("✅ All tasks complete! Check your Telegram channel.")
+    print("✅ All tasks complete! Everything is now working inside the Mini App.")
 
 if __name__ == "__main__":
-    # Change "my_video.mp4" to your actual filename if it's different
     file_to_split = "my_video.mp4" 
     target_path = os.path.join(GITHUB_REPO_PATH, file_to_split)
     
