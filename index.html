@@ -1,0 +1,69 @@
+import os
+import subprocess
+import time
+import asyncio
+from aiogram import Bot
+
+# --- CONFIGURATION ---
+TOKEN = 'YOUR_NEW_BOT_TOKEN' # Use the REVOKED/NEW token from BotFather
+CHANNEL_ID = '@your_channel_username'
+GITHUB_REPO_PATH = r'C:\Users\YourName\Documents\Video-player-app' # Path to your cloned repo
+MINI_APP_URL = 'https://sqwidonthebeat.github.io/Video-player-app/'
+
+bot = Bot(token=TOKEN)
+
+def get_duration(file_path):
+    cmd = f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{file_path}"'
+    return float(subprocess.check_output(cmd, shell=True).decode().strip())
+
+async def process_video(video_name):
+    # 1. Generate a unique ID for this video (e.g., vid171428)
+    video_id = f"vid{int(time.time())}"
+    segments_dir = os.path.join(GITHUB_REPO_PATH, "segments")
+    
+    print(f"🚀 Processing {video_name}...")
+
+    # 2. Split into 30s segments
+    subprocess.call([
+        'ffmpeg', '-i', video_name, 
+        '-f', 'segment', '-segment_time', '30', 
+        '-g', '30', '-c', 'copy', 
+        os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
+    ])
+
+    # 3. Filter the last segment (< 20s)
+    parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id)])
+    last_part = os.path.join(segments_dir, parts[-1])
+    
+    if get_duration(last_part) < 20:
+        print(f"🗑️ Deleting short final piece: {parts[-1]}")
+        os.remove(last_part)
+        parts.pop()
+
+    # 4. Push to GitHub automatically
+    print("☁️ Uploading to GitHub...")
+    os.chdir(GITHUB_REPO_PATH)
+    subprocess.call(['git', 'add', '.'])
+    subprocess.call(['git', 'commit', '-m', f'Added segments for {video_id}'])
+    subprocess.call(['git', 'push', 'origin', 'main'])
+
+    # 5. Post to Telegram Channel
+    for i, part in enumerate(parts):
+        part_num = f"{i:03d}" # Matches the %03d format (000, 001, etc)
+        link = f"{MINI_APP_URL}?vid={video_id}&part={part_num}"
+        
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=f"🎬 **New Clip: Part {i+1}**\n\nUnlock and watch below! 👇",
+            reply_markup={
+                "inline_keyboard": [[
+                    {"text": "🔓 Watch Now (Ad)", "web_app": {"url": link}}
+                ]]
+            },
+            parse_mode="Markdown"
+        )
+    print("✅ Done! Posted to channel.")
+
+if __name__ == "__main__":
+    # Put your video file name here to start
+    asyncio.run(process_video("my_new_video.mp4"))
