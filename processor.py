@@ -18,6 +18,7 @@ def get_duration(file_path):
     return float(subprocess.check_output(cmd, shell=True).decode().strip())
 
 async def process_video(video_path):
+    # Generate a unique ID for this video batch
     video_id = f"vid{int(time.time())}"
     segments_dir = os.path.join(GITHUB_REPO_PATH, "segments")
     
@@ -34,6 +35,7 @@ async def process_video(video_path):
         os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
     ])
 
+    # Get the list of segments we just created
     parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id)])
     
     # Push to GitHub
@@ -50,25 +52,44 @@ async def process_video(video_path):
     # Send to Telegram Channel
     print("📤 Posting to Telegram...")
     for i, part_file in enumerate(parts):
-        part_num = part_file.split('_part_')[-1].replace('.mp4', '')
-        link = f"{MINI_APP_URL}?vid={video_id}&part={part_num}"
+        # Extract part number (e.g., 000, 001) - keeping it raw for the URL
+        # Our HTML padStart fix handles the rest
+        raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
         
-        # Standard URL button - very reliable for Channels
+        # We convert to int and back to string to remove leading zeros for the URL 
+        # (e.g., 001 becomes 1), which is cleaner for the URL parameters
+        part_num_clean = str(int(raw_part_num))
+        
+        link = f"{MINI_APP_URL}?vid={video_id}&part={part_num_clean}"
+        
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
                 InlineKeyboardButton(text="🔓 Watch Now", url=link)
             ]]
         )
         
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=f"🎬 **Part {i+1}**\n\nTap below to watch this segment! ⚡️",
-            reply_markup=keyboard,
-            parse_mode="Markdown"
-        )
+        try:
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=f"🎬 **Part {i+1}**\n\nTap below to watch this segment! ⚡️",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            print(f"✅ Posted Part {i+1}/{len(parts)}")
+            
+            # --- ANTI-FLOOD DELAY ---
+            # Telegram allows ~20 messages per minute in channels. 
+            # 2-3 seconds is the "sweet spot" for safety.
+            await asyncio.sleep(2.5) 
+            
+        except Exception as e:
+            print(f"⚠️ Error sending part {i+1}: {e}")
+            # If we hit a serious flood error, wait longer
+            if "RetryAfter" in str(e):
+                await asyncio.sleep(30)
     
     await bot.session.close()
-    print("✅ Done! Check your Telegram channel.")
+    print("✅ All tasks complete! Check your Telegram channel.")
 
 if __name__ == "__main__":
     file_to_split = "my_video.mp4" 
@@ -77,4 +98,4 @@ if __name__ == "__main__":
     if os.path.exists(target_path):
         asyncio.run(process_video(target_path))
     else:
-        print(f"❌ Error: Could not find '{file_to_split}'")
+        print(f"❌ Error: Could not find '{file_to_split}' in {GITHUB_REPO_PATH}")
