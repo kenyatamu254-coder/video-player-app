@@ -1,69 +1,61 @@
-import os
-import subprocess
-import time
-import asyncio
-from aiogram import Bot
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Video Player App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://adsgram.ai/sdk.js"></script>
+    <style>
+        body { background-color: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        #ad-container { text-align: center; padding: 20px; }
+        #player { display: none; width: 100%; max-height: 100vh; background: #000; }
+        .btn { background: #248bcf; border: none; color: white; padding: 16px 32px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h2 { margin-bottom: 10px; }
+        p { color: #aaa; margin-bottom: 25px; }
+    </style>
+</head>
+<body>
 
-# --- CONFIGURATION ---
-TOKEN = 'YOUR_NEW_BOT_TOKEN' # Use the REVOKED/NEW token from BotFather
-CHANNEL_ID = '@your_channel_username'
-GITHUB_REPO_PATH = r'C:\Users\YourName\Documents\Video-player-app' # Path to your cloned repo
-MINI_APP_URL = 'https://sqwidonthebeat.github.io/Video-player-app/'
+    <div id="ad-container">
+        <h2>Content Locked</h2>
+        <p>Watch a short ad to play this 30s segment</p>
+        <button class="btn" onclick="playAd()">🔓 Unlock & Play</button>
+    </div>
 
-bot = Bot(token=TOKEN)
+    <video id="player" controls playsinline></video>
 
-def get_duration(file_path):
-    cmd = f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{file_path}"'
-    return float(subprocess.check_output(cmd, shell=True).decode().strip())
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-async def process_video(video_name):
-    # 1. Generate a unique ID for this video (e.g., vid171428)
-    video_id = f"vid{int(time.time())}"
-    segments_dir = os.path.join(GITHUB_REPO_PATH, "segments")
-    
-    print(f"🚀 Processing {video_name}...")
+        // Updated with your Block ID (Double check if Adsgram gave you a new Block ID for Platform 28013)
+        const AdController = window.Adsgram.init({ blockId: "28013" });
 
-    # 2. Split into 30s segments
-    subprocess.call([
-        'ffmpeg', '-i', video_name, 
-        '-f', 'segment', '-segment_time', '30', 
-        '-g', '30', '-c', 'copy', 
-        os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
-    ])
+        function playAd() {
+            AdController.show().then((result) => {
+                unlockAndPlay();
+            }).catch((result) => {
+                alert("Ad error or skipped. Please watch to the end to unlock.");
+                console.error("Adsgram error:", result);
+            });
+        }
 
-    # 3. Filter the last segment (< 20s)
-    parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id)])
-    last_part = os.path.join(segments_dir, parts[-1])
-    
-    if get_duration(last_part) < 20:
-        print(f"🗑️ Deleting short final piece: {parts[-1]}")
-        os.remove(last_part)
-        parts.pop()
+        function unlockAndPlay() {
+            const params = new URLSearchParams(window.location.search);
+            const videoId = params.get('vid');
+            const part = params.get('part');
+            
+            // Updated to your new GitHub URL
+            const videoUrl = `https://kenyatamu254-coder.github.io/video-player-app/segments/${videoId}_part_${part}.mp4`;
 
-    # 4. Push to GitHub automatically
-    print("☁️ Uploading to GitHub...")
-    os.chdir(GITHUB_REPO_PATH)
-    subprocess.call(['git', 'add', '.'])
-    subprocess.call(['git', 'commit', '-m', f'Added segments for {video_id}'])
-    subprocess.call(['git', 'push', 'origin', 'main'])
-
-    # 5. Post to Telegram Channel
-    for i, part in enumerate(parts):
-        part_num = f"{i:03d}" # Matches the %03d format (000, 001, etc)
-        link = f"{MINI_APP_URL}?vid={video_id}&part={part_num}"
-        
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=f"🎬 **New Clip: Part {i+1}**\n\nUnlock and watch below! 👇",
-            reply_markup={
-                "inline_keyboard": [[
-                    {"text": "🔓 Watch Now (Ad)", "web_app": {"url": link}}
-                ]]
-            },
-            parse_mode="Markdown"
-        )
-    print("✅ Done! Posted to channel.")
-
-if __name__ == "__main__":
-    # Put your video file name here to start
-    asyncio.run(process_video("my_new_video.mp4"))
+            document.getElementById('ad-container').style.display = 'none';
+            const player = document.getElementById('player');
+            player.style.display = 'block';
+            player.src = videoUrl;
+            player.play();
+        }
+    </script>
+</body>
+</html>
