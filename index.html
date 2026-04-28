@@ -5,12 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Video Player App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://adsgram.ai/sdk.js"></script>
+    <script id="adsgram-sdk" src="https://adsgram.ai/sdk.js"></script> 
     <style>
-        body { background-color: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        body { 
+            background-color: #000; 
+            color: #fff; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            font-family: sans-serif; 
+            overflow: hidden; 
+        }
         #ad-container { text-align: center; padding: 20px; }
         #player { display: none; width: 100%; height: auto; background: #000; }
-        .btn { background: #248bcf; border: none; color: white; padding: 16px 32px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .btn { 
+            background: #248bcf; 
+            border: none; 
+            color: white; 
+            padding: 16px 32px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 18px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+        }
         .btn:disabled { background: #555; cursor: not-allowed; }
         h2 { margin-bottom: 10px; }
         p { color: #aaa; margin-bottom: 25px; }
@@ -31,16 +52,29 @@
         tg.ready();
         tg.expand();
 
-        // Checkpoint: Is the SDK even there?
-        if (!window.Adsgram) {
-            console.error("Adsgram SDK failed to load.");
-            alert("CRITICAL ERROR: Adsgram SDK not found. Please check your internet or disable ad-blockers.");
-        }
+        let AdController = null;
 
-        // Initialize Adsgram with Test ID
-        const AdController = window.Adsgram.init({ blockId: "dd66" });
+        // --- 1. INITIALIZATION CHECK ---
+        // We wait for the page to finish loading before checking for Adsgram
+        window.onload = () => {
+            if (window.Adsgram) {
+                // Success: Initialize the controller with test ID
+                AdController = window.Adsgram.init({ blockId: "dd66" });
+                console.log("Adsgram SDK Loaded Successfully");
+            } else {
+                // Failure: The script was likely blocked by the phone/network
+                console.error("Adsgram SDK blocked.");
+                alert("Connection Error: Please disable your ad-blocker or Private DNS to watch videos.");
+            }
+        };
 
+        // --- 2. AD PLAYBACK LOGIC ---
         async function playAd() {
+            if (!AdController) {
+                alert("Ad system is still loading or blocked. Please refresh or check your internet.");
+                return;
+            }
+
             const btn = document.getElementById('unlockBtn');
             btn.innerText = "⌛ Loading Ad...";
             btn.disabled = true;
@@ -61,36 +95,35 @@
             } catch (error) {
                 console.error("Adsgram Error:", error);
                 
-                // Detailed Debugging Alerts
+                // Detailed Debugging for you
                 if (error.error === "no_fill") {
-                    alert("Debug: No ads available for your region (No Fill). Unlocking for test...");
-                } else if (error.error === "invalid_block_id") {
-                    alert("Debug: Invalid Block ID. Check your dashboard.");
+                    console.log("No fill available. Unlocking for testing.");
                 } else {
-                    alert("Adsgram Error: " + (error.description || JSON.stringify(error)));
+                    console.log("Adsgram Error: " + JSON.stringify(error));
                 }
 
-                // Fallback: If you are still testing, we unlock anyway so you can check the video
+                // Fallback: Unlock anyway for testing purposes
                 unlockAndPlay(); 
             }
         }
 
+        // --- 3. VIDEO UNLOCK LOGIC ---
         function unlockAndPlay() {
             const params = new URLSearchParams(window.location.search);
             const videoId = params.get('vid');
             let part = params.get('part');
 
             if (!videoId || part === null) {
-                alert("Error: Missing video information (vid or part) in the URL.");
+                alert("Error: Missing video data in the link.");
                 return;
             }
 
-            // Convert '0' to '000' to match your GitHub 'segments' folder naming
+            // Fix: Converts part '0' to '000' to match your GitHub segments folder
             const paddedPart = part.toString().padStart(3, '0');
             
             const videoUrl = `https://kenyatamu254-coder.github.io/video-player-app/segments/${videoId}_part_${paddedPart}.mp4`;
 
-            console.log("Loading Video:", videoUrl);
+            console.log("Loading Video Segment:", videoUrl);
 
             // UI Cleanup
             document.getElementById('ad-container').style.display = 'none';
@@ -102,8 +135,8 @@
             player.load(); 
             
             player.play().catch(e => {
-                console.warn("Autoplay blocked or failed:", e);
-                alert("Please tap the play button on the video player to start.");
+                console.warn("Autoplay blocked:", e);
+                alert("Tap the play button on the video player to start.");
             });
         }
     </script>
