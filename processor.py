@@ -3,13 +3,14 @@ import subprocess
 import time
 import asyncio
 from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- CONFIGURATION ---
 TOKEN = '8738639794:AAHhkDQMRQQ9yCpnx1IiG5RKCwu7PwC7qYc' 
 CHANNEL_ID = -1003921891307 
 GITHUB_REPO_PATH = r'C:\Users\director\Documents\video-player-app' 
 MINI_APP_URL = 'https://kenyatamu254-coder.github.io/video-player-app/'
+BOT_USERNAME = "Kenya_Tamu_Bot"  # Your bot username added here
 
 bot = Bot(token=TOKEN)
 
@@ -42,11 +43,9 @@ async def process_video(video_path):
     print("☁️ Syncing with GitHub...")
     os.chdir(GITHUB_REPO_PATH)
     try:
-        # Step 1: Pull first to get changes from GitHub
         print("🔄 Pulling latest changes from GitHub...")
         subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
         
-        # Step 2: Add, Commit, and Push
         print("📤 Uploading new segments...")
         subprocess.run(['git', 'add', '.'], check=True)
         subprocess.run(['git', 'commit', '-m', f'Segments for {video_id}'], check=True)
@@ -62,16 +61,15 @@ async def process_video(video_path):
         raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
         part_num_clean = str(int(raw_part_num))
         
-        # This link now targets your Mini App
-        link = f"{MINI_APP_URL}?vid={video_id}&part={part_num_clean}"
+        # --- FIX: DIRECT MINI APP DEEP LINK ---
+        # This format is allowed in channels and opens the Mini App panel
+        deep_link = f"https://t.me/{BOT_USERNAME}/app?startapp=vid_{video_id}_part_{part_num_clean}"
         
-        # --- FIX: USE WEB_APP INSTEAD OF URL ---
-        # This makes it open INSIDE Telegram
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
                 InlineKeyboardButton(
                     text="🎬 Watch Inside Bot", 
-                    web_app=WebAppInfo(url=link)
+                    url=deep_link  # Use URL instead of WebAppInfo for Channel compatibility
                 )
             ]]
         )
@@ -79,7 +77,7 @@ async def process_video(video_path):
         try:
             await bot.send_message(
                 chat_id=CHANNEL_ID,
-                text=f"📺 **Part {i+1}**\n\nTap below to watch without leaving Telegram! ⚡️",
+                text=f"📺 **Part {i+1}**\n\nTap below to watch inside the bot! ⚡️",
                 reply_markup=keyboard,
                 parse_mode="Markdown"
             )
@@ -95,7 +93,7 @@ async def process_video(video_path):
                 await asyncio.sleep(30)
     
     await bot.session.close()
-    print("✅ All tasks complete! Everything is now working inside the Mini App.")
+    print(f"✅ All tasks complete! Users can now watch on @{BOT_USERNAME}")
 
 if __name__ == "__main__":
     file_to_split = "my_video.mp4" 
