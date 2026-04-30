@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player</title>
+    <!-- Telegram Web App SDK (Required for Telegram Mini Apps) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Adsgram SDK -->
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
@@ -20,14 +22,20 @@
         #video-container {
             width: 100%;
             max-width: 600px;
+            aspect-ratio: 16 / 9; /* FIX: Forces the container to stay video-shaped even when empty */
             background: #000;
             border-radius: 10px;
             overflow: hidden;
             position: relative;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         video {
             width: 100%;
+            height: 100%;
+            object-fit: contain; /* Keeps video perfectly scaled */
             display: none; /* Hidden until ad is watched */
         }
         #overlay {
@@ -42,6 +50,7 @@
             justify-content: center;
             align-items: center;
             z-index: 10;
+            text-align: center;
         }
         .btn {
             background: #f39c12;
@@ -77,7 +86,7 @@
         <!-- The overlay that locks the video -->
         <div id="overlay">
             <h3 style="margin-bottom: 5px;">Video Locked</h3>
-            <p style="color: #ccc; margin-bottom: 20px; font-size: 14px;">Watch a quick ad to support sqwid onthebeat!</p>
+            <p style="color: #ccc; margin-bottom: 20px; font-size: 14px; padding: 0 10px;">Watch a quick ad to support sqwid onthebeat!</p>
             <button id="unlockBtn" class="btn" onclick="playAd()">🔓 Unlock & Play</button>
         </div>
 
@@ -91,36 +100,59 @@
     <p class="info-text">Powered by @Kenya_Tamu_Bot</p>
 
     <script>
-        // 1. Get the parameters from the URL (e.g., ?vid=vid123&part=1)
-        const urlParams = new URLSearchParams(window.location.search);
-        const videoId = urlParams.get('vid');
-        let partNum = urlParams.get('part');
+        // 1. Initialize Telegram Web App to expand it automatically (looks more professional)
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
 
-        // 2. Initialize the Adsgram SDK
-        // NOTE: Still using the test block "dd66". Change to your real one when ready to launch!
+        // 2. FIX: Properly extract parameters from Telegram Deep Link
+        let videoId = null;
+        let partNum = null;
+
+        // Try getting start_param from Telegram native SDK first
+        const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Check Telegram param, then URL startapp, then fallback
+        const startAppString = tgStartParam || urlParams.get('tgWebAppStartParam') || urlParams.get('startapp');
+
+        if (startAppString) {
+            // Matches the python link format: vid_vid123456_part_1
+            const match = startAppString.match(/vid_(.*)_part_(\d+)/);
+            if (match) {
+                videoId = match[1];
+                partNum = match[2];
+            }
+        } else {
+            // Fallback for normal browser testing
+            videoId = urlParams.get('vid');
+            partNum = urlParams.get('part');
+        }
+
+        // 3. Initialize the Adsgram SDK with your real Block ID
         const AdController = window.Adsgram.init({ blockId: "28881" }); 
 
-        // 3. Load the correct video segment
+        // 4. Load the correct video segment
         if (videoId && partNum) {
-            // Pad the part number with zeros to match ffmpeg output (e.g., 1 -> 001)
             const paddedPart = partNum.padStart(3, '0');
             const videoUrl = `segments/${videoId}_part_${paddedPart}.mp4`;
             
             document.getElementById('video-source').src = videoUrl;
             document.getElementById('video-player').load();
         } else {
-            document.getElementById('overlay').innerHTML = "<h3>❌ Invalid Video Link</h3>";
+            document.getElementById('overlay').innerHTML = "<h3>❌ Invalid Video Link</h3><p style='color:#aaa;'>Could not find the video file.</p>";
         }
 
-        // 4. The function that unlocks and plays the video
+        // 5. The function that unlocks and plays the video
         function unlockAndPlay() {
             document.getElementById('overlay').style.display = 'none';
             const player = document.getElementById('video-player');
             player.style.display = 'block';
-            player.play();
+            player.play().catch(e => console.log("Auto-play blocked by browser. User must click play."));
         }
 
-        // 5. The "Professional" Ad Logic
+        // 6. The "Professional" Ad Logic
         async function playAd() {
             const btn = document.getElementById('unlockBtn');
             btn.innerText = "⌛ Checking for Ads...";
@@ -135,7 +167,7 @@
                 const result = await AdController.show();
                 
                 if (result.done) {
-                    // SUCCESS: User watched it. You get paid!
+                    // SUCCESS: User watched it
                     unlockAndPlay();
                 } else {
                     // USER CLOSED IT EARLY
@@ -148,9 +180,7 @@
             } catch (error) {
                 console.log("Ad Blocked or No Fill:", error);
                 
-                // --- THE PRO BYPASS ---
-                // If they have an adblocker (Private DNS), don't yell at them.
-                // Just pretend the network is slow and let them watch anyway.
+                // BYPASS: Let them watch anyway if their phone blocks the ad
                 btn.innerText = "⚡ Connection slow... Unlocking anyway";
                 
                 setTimeout(() => {
