@@ -24,13 +24,12 @@ async def process_video(video_path):
     print(f"🚀 Processing: {video_path}")
 
     # Split into 30s segments with 3-digit padding (001, 002...)
-    # This matches the HTML's padStart(3, '0')
     output_pattern = os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
     
     subprocess.call([
         'ffmpeg', '-i', video_path, 
         '-f', 'segment', '-segment_time', '30', 
-        '-g', '30', '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac', # Re-encoding slightly for better web compatibility
+        '-g', '30', '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac',
         output_pattern
     ])
 
@@ -58,12 +57,11 @@ async def process_video(video_path):
     print("📤 Posting to Telegram...")
     for i, part_file in enumerate(parts):
         # Extract the clean part number for the deep link
-        # Example: vid123_part_001.mp4 -> 1
         raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
         part_num_clean = str(int(raw_part_num))
         
-        # Deep link format: startapp=vid_vid12345_part_1
-        deep_link = f"https://t.me/{BOT_USERNAME}/app?startapp=vid_{video_id}_part_{part_num_clean}"
+        # --- FIXED: Using /play instead of /app to match your Telegram settings ---
+        deep_link = f"https://t.me/{BOT_USERNAME}/play?startapp=vid_{video_id}_part_{part_num_clean}"
         
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
