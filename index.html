@@ -86,11 +86,48 @@
             document.getElementById('status-title').innerText = "❌ Invalid Link";
         }
 
+        // --- UPDATED ROBUST UNLOCK & PLAY FUNCTION ---
         function unlockAndPlay() {
-            document.getElementById('overlay').style.display = 'none';
             const player = document.getElementById('video-player');
+            const overlay = document.getElementById('overlay');
+            
+            // 1. Hide the overlay and show the player
+            overlay.style.display = 'none';
             player.style.display = 'block';
-            player.play().catch(e => console.log("Manual play required"));
+            
+            try {
+                // 2. Force the browser to recognize the new file
+                player.load();
+                
+                // 3. Attempt to play the video
+                const playPromise = player.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log("✅ Video started successfully.");
+                    }).catch(error => {
+                        console.log("⚠️ Play interrupted. Attempting a safe retry...", error);
+                        
+                        // 4. Wait half a second before retrying so the browser doesn't panic
+                        setTimeout(() => {
+                            player.load();
+                            const retryPromise = player.play();
+                            
+                            if (retryPromise !== undefined) {
+                                retryPromise.catch(e => {
+                                    console.log("❌ Auto-play completely blocked. User must click play.", e);
+                                    // Ensure controls are visible so the user can tap "Play" manually
+                                    player.controls = true; 
+                                });
+                            }
+                        }, 500); 
+                    });
+                }
+            } catch (err) {
+                console.error("Critical player error:", err);
+                // Fallback: Just let the user click play
+                player.controls = true;
+            }
         }
 
         async function playAd() {
