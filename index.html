@@ -4,78 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player</title>
-    <!-- Telegram Web App SDK (Required for Telegram Mini Apps) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Adsgram SDK -->
     <script src="https://adsgram.ai/sdk.js"></script>
     <style>
-        body {
-            background-color: #111;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        body { background-color: #111; color: #fff; font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         #video-container {
-            width: 100%;
-            max-width: 600px;
-            aspect-ratio: 16 / 9; /* FIX: Forces the container to stay video-shaped even when empty */
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 100%; max-width: 600px; aspect-ratio: 16 / 9;
+            background: #000; border-radius: 10px; overflow: hidden;
+            position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex; justify-content: center; align-items: center;
         }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* Keeps video perfectly scaled */
-            display: none; /* Hidden until ad is watched */
-        }
+        video { width: 100%; height: 100%; object-fit: contain; display: none; }
         #overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            text-align: center;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10; text-align: center;
         }
         .btn {
-            background: #f39c12;
-            color: #fff;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.3s;
+            background: #f39c12; color: #fff; border: none; padding: 15px 30px;
+            font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;
         }
-        .btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
-        .btn:hover:not(:disabled) {
-            background: #e67e22;
-        }
-        .info-text {
-            color: #aaa;
-            font-size: 14px;
-            margin-top: 15px;
-            text-align: center;
-        }
+        .btn:disabled { background: #555; }
     </style>
 </head>
 <body>
@@ -83,109 +32,85 @@
     <h2>📺 Exclusive Content</h2>
 
     <div id="video-container">
-        <!-- The overlay that locks the video -->
         <div id="overlay">
-            <h3 style="margin-bottom: 5px;">Video Locked</h3>
-            <p style="color: #ccc; margin-bottom: 20px; font-size: 14px; padding: 0 10px;">Watch a quick ad to support sqwid onthebeat!</p>
+            <h3 id="status-title">Video Locked</h3>
+            <p id="status-desc" style="color: #ccc; margin-bottom: 20px; font-size: 14px;">Watch a quick ad to unlock</p>
             <button id="unlockBtn" class="btn" onclick="playAd()">🔓 Unlock & Play</button>
         </div>
 
-        <!-- The actual video player -->
         <video id="video-player" controls controlsList="nodownload">
             <source id="video-source" src="" type="video/mp4">
-            Your browser does not support the video tag.
         </video>
     </div>
 
-    <p class="info-text">Powered by @Kenya_Tamu_Bot</p>
-
     <script>
-        // 1. Initialize Telegram Web App to expand it automatically (looks more professional)
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
         }
 
-        // 2. FIX: Properly extract parameters from Telegram Deep Link
+        // --- PARAMETER PARSING ---
         let videoId = null;
         let partNum = null;
-
-        // Try getting start_param from Telegram native SDK first
-        const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
         const urlParams = new URLSearchParams(window.location.search);
-        
-        // Check Telegram param, then URL startapp, then fallback
-        const startAppString = tgStartParam || urlParams.get('tgWebAppStartParam') || urlParams.get('startapp');
+        const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || urlParams.get('startapp');
 
-        if (startAppString) {
-            // Matches the python link format: vid_vid123456_part_1
-            const match = startAppString.match(/vid_(.*)_part_(\d+)/);
+        if (startParam) {
+            // Regex to catch vid_xxxx_part_x
+            const match = startParam.match(/vid_(.*)_part_(\d+)/);
             if (match) {
-                videoId = match[1];
+                videoId = match[1].toLowerCase(); // Force lowercase
                 partNum = match[2];
             }
-        } else {
-            // Fallback for normal browser testing
-            videoId = urlParams.get('vid');
-            partNum = urlParams.get('part');
         }
 
-        // 3. Initialize the Adsgram SDK with your real Block ID
         const AdController = window.Adsgram.init({ blockId: "28881" }); 
 
-        // 4. Load the correct video segment
         if (videoId && partNum) {
             const paddedPart = partNum.padStart(3, '0');
             const videoUrl = `segments/${videoId}_part_${paddedPart}.mp4`;
             
-            document.getElementById('video-source').src = videoUrl;
-            document.getElementById('video-player').load();
+            const player = document.getElementById('video-player');
+            const source = document.getElementById('video-source');
+            
+            source.src = videoUrl;
+            player.load();
+
+            // DEBUGGER: If the video fails to load, tell us why
+            player.onerror = function() {
+                document.getElementById('status-title').innerText = "❌ Video Not Found";
+                document.getElementById('status-desc').innerHTML = `Looking for: <br><code style="color:yellow">${videoUrl}</code><br>Check your GitHub folder!`;
+                document.getElementById('unlockBtn').style.display = 'none';
+            };
         } else {
-            document.getElementById('overlay').innerHTML = "<h3>❌ Invalid Video Link</h3><p style='color:#aaa;'>Could not find the video file.</p>";
+            document.getElementById('status-title').innerText = "❌ Invalid Link";
         }
 
-        // 5. The function that unlocks and plays the video
         function unlockAndPlay() {
             document.getElementById('overlay').style.display = 'none';
             const player = document.getElementById('video-player');
             player.style.display = 'block';
-            player.play().catch(e => console.log("Auto-play blocked by browser. User must click play."));
+            player.play().catch(e => console.log("Manual play required"));
         }
 
-        // 6. The "Professional" Ad Logic
         async function playAd() {
             const btn = document.getElementById('unlockBtn');
-            btn.innerText = "⌛ Checking for Ads...";
+            btn.innerText = "⌛ Loading Ad...";
             btn.disabled = true;
 
             try {
-                if (!AdController) {
-                    throw new Error("SDK_NOT_LOADED");
-                }
-
-                // Try to show the ad
                 const result = await AdController.show();
-                
                 if (result.done) {
-                    // SUCCESS: User watched it
                     unlockAndPlay();
                 } else {
-                    // USER CLOSED IT EARLY
-                    btn.innerText = "❌ Please watch the full ad";
-                    setTimeout(() => { 
-                        btn.innerText = "🔓 Unlock & Play"; 
-                        btn.disabled = false;
-                    }, 3000);
+                    btn.innerText = "🔓 Unlock & Play";
+                    btn.disabled = false;
+                    alert("Please watch the full ad to continue.");
                 }
             } catch (error) {
-                console.log("Ad Blocked or No Fill:", error);
-                
-                // BYPASS: Let them watch anyway if their phone blocks the ad
+                // BYPASS for Ad-Blockers/No Fill
                 btn.innerText = "⚡ Connection slow... Unlocking anyway";
-                
-                setTimeout(() => {
-                    unlockAndPlay(); 
-                }, 2000);
+                setTimeout(unlockAndPlay, 2000);
             }
         }
     </script>
