@@ -25,13 +25,33 @@ async def process_video(video_path):
 
     # Split into 30s segments with 3-digit padding (001, 002...)
     output_pattern = os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
-    
-    subprocess.call([
-        'ffmpeg', '-i', video_path, 
-        '-f', 'segment', '-segment_time', '30', 
-        '-g', '30', '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac',
+
+    # --- THE FIXED & OPTIMIZED FFMPEG COMMAND ---
+    ffmpeg_command = [
+        'ffmpeg', 
+        '-y',                          # Overwrite existing files
+        '-i', video_path, 
+        '-f', 'segment', 
+        '-segment_time', '30', 
+        '-g', '60',                    # Keyframe every 2 seconds (assuming 30fps)
+        '-sc_threshold', '0',          # Force exact cuts at 30 seconds
+        '-c:v', 'libx264', 
+        '-pix_fmt', 'yuv420p',         # Maximum compatibility for mobile
+        '-crf', '28',                  # Balanced quality/file size for mobile data
+        '-c:a', 'aac', 
+        '-b:a', '128k', 
+        '-ac', '2',                    # Ensure stereo audio
+        '-movflags', '+faststart+frag_keyframe+empty_moov+default_base_moof', 
         output_pattern
-    ])
+    ]
+
+    try:
+        print("🎬 Running optimized video splitting...")
+        subprocess.run(ffmpeg_command, check=True)
+        print("✅ Video segments created successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ FFmpeg failed with error code: {e.returncode}")
+        return
 
     # Get the list of segments we just created
     parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id)])
@@ -60,7 +80,7 @@ async def process_video(video_path):
         raw_part_num = part_file.split('_part_')[-1].replace('.mp4', '')
         part_num_clean = str(int(raw_part_num))
         
-        # --- FIXED: Using /play instead of /app to match your Telegram settings ---
+        # Using /play to match your Telegram Direct Link settings
         deep_link = f"https://t.me/{BOT_USERNAME}/play?startapp=vid_{video_id}_part_{part_num_clean}"
         
         keyboard = InlineKeyboardMarkup(
