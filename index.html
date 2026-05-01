@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://adsgram.ai/sdk.js"></script>
+    
+    <!-- ✅ UPDATED Adsgram Script -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    
     <style>
         body { background-color: #111; color: #fff; font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         #video-container {
@@ -35,7 +38,9 @@
         <div id="overlay">
             <h3 id="status-title">Video Locked</h3>
             <p id="status-desc" style="color: #ccc; margin-bottom: 20px; font-size: 14px;">Watch a quick ad to unlock</p>
-            <button id="unlockBtn" class="btn" onclick="playAd()">🔓 Unlock & Play</button>
+            
+            <!-- ✅ UPDATED Button to match your request -->
+            <button id="unlockBtn" class="btn" onclick="showAdToUser()">Watch Ad to Play Video</button>
         </div>
 
         <video id="video-player" controls controlsList="nodownload">
@@ -56,14 +61,14 @@
         const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || urlParams.get('startapp');
 
         if (startParam) {
-            // Regex to catch vid_xxxx_part_x
             const match = startParam.match(/vid_(.*)_part_(\d+)/);
             if (match) {
-                videoId = match[1].toLowerCase(); // Force lowercase
+                videoId = match[1].toLowerCase();
                 partNum = match[2];
             }
         }
 
+        // ✅ 1. Initialize the ad controller with your Block ID
         const AdController = window.Adsgram.init({ blockId: "28881" }); 
 
         if (videoId && partNum) {
@@ -76,7 +81,6 @@
             source.src = videoUrl;
             player.load();
 
-            // DEBUGGER: If the video fails to load, tell us why
             player.onerror = function() {
                 document.getElementById('status-title').innerText = "❌ Video Not Found";
                 document.getElementById('status-desc').innerHTML = `Looking for: <br><code style="color:yellow">${videoUrl}</code><br>Check your GitHub folder!`;
@@ -86,20 +90,16 @@
             document.getElementById('status-title').innerText = "❌ Invalid Link";
         }
 
-        // --- UPDATED ROBUST UNLOCK & PLAY FUNCTION ---
+        // --- ROBUST UNLOCK & PLAY FUNCTION ---
         function unlockAndPlay() {
             const player = document.getElementById('video-player');
             const overlay = document.getElementById('overlay');
             
-            // 1. Hide the overlay and show the player
             overlay.style.display = 'none';
             player.style.display = 'block';
             
             try {
-                // 2. Force the browser to recognize the new file
                 player.load();
-                
-                // 3. Attempt to play the video
                 const playPromise = player.play();
                 
                 if (playPromise !== undefined) {
@@ -107,16 +107,12 @@
                         console.log("✅ Video started successfully.");
                     }).catch(error => {
                         console.log("⚠️ Play interrupted. Attempting a safe retry...", error);
-                        
-                        // 4. Wait half a second before retrying so the browser doesn't panic
                         setTimeout(() => {
                             player.load();
                             const retryPromise = player.play();
-                            
                             if (retryPromise !== undefined) {
                                 retryPromise.catch(e => {
-                                    console.log("❌ Auto-play completely blocked. User must click play.", e);
-                                    // Ensure controls are visible so the user can tap "Play" manually
+                                    console.log("❌ Auto-play blocked. User must click play.", e);
                                     player.controls = true; 
                                 });
                             }
@@ -125,30 +121,27 @@
                 }
             } catch (err) {
                 console.error("Critical player error:", err);
-                // Fallback: Just let the user click play
                 player.controls = true;
             }
         }
 
-        async function playAd() {
+        // ✅ 2. NEW Function to show the ad based on your snippet
+        function showAdToUser() {
             const btn = document.getElementById('unlockBtn');
             btn.innerText = "⌛ Loading Ad...";
             btn.disabled = true;
 
-            try {
-                const result = await AdController.show();
-                if (result.done) {
-                    unlockAndPlay();
-                } else {
-                    btn.innerText = "🔓 Unlock & Play";
-                    btn.disabled = false;
-                    alert("Please watch the full ad to continue.");
-                }
-            } catch (error) {
-                // BYPASS for Ad-Blockers/No Fill
-                btn.innerText = "⚡ Connection slow... Unlocking anyway";
-                setTimeout(unlockAndPlay, 2000);
-            }
+            AdController.show().then((result) => {
+                // This runs if the user watched the full ad
+                console.log("Ad finished! Rewarding user...");
+                unlockAndPlay(); // Starts the video
+            }).catch((result) => {
+                // This runs if the ad failed or was closed early
+                console.error("Ad error or closed:", result.description);
+                btn.innerText = "Watch Ad to Play Video";
+                btn.disabled = false;
+                alert("Please watch the full ad to continue.");
+            });
         }
     </script>
 </body>
