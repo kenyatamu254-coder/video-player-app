@@ -3,7 +3,7 @@ import subprocess
 import time
 import asyncio
 from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
@@ -32,24 +32,43 @@ async def process_video(video_path):
 
     print(f"🚀 Processing: {video_path}")
 
+    # --- NEW: GENERATE THUMBNAIL ---
+    thumb_path = os.path.join(segments_dir, f"{video_id}_thumb.jpg")
+    print("📸 Generating video thumbnail...")
+    thumb_command = [
+        'ffmpeg', 
+        '-y', 
+        '-ss', '00:00:01',            # Grab frame at the 1-second mark (avoids black starting frames)
+        '-i', video_path, 
+        '-vframes', '1',              # Only extract one frame
+        '-q:v', '2',                  # High quality output
+        thumb_path
+    ]
+    try:
+        subprocess.run(thumb_command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("✅ Thumbnail created successfully!")
+    except subprocess.CalledProcessError:
+        print("⚠️ Failed to generate thumbnail. The bot will proceed without it.")
+        thumb_path = None
+
     # Split into 30s segments with 3-digit padding (001, 002...)
     output_pattern = os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
 
     # --- THE FIXED & OPTIMIZED FFMPEG COMMAND ---
     ffmpeg_command = [
         'ffmpeg', 
-        '-y',                           # Overwrite existing files
+        '-y',                            # Overwrite existing files
         '-i', video_path, 
         '-f', 'segment', 
         '-segment_time', '30', 
-        '-g', '60',                     # Keyframe every 2 seconds (assuming 30fps)
-        '-sc_threshold', '0',           # Force exact cuts at 30 seconds
+        '-g', '60',                      # Keyframe every 2 seconds (assuming 30fps)
+        '-sc_threshold', '0',            # Force exact cuts at 30 seconds
         '-c:v', 'libx264', 
-        '-pix_fmt', 'yuv420p',          # Maximum compatibility for mobile
-        '-crf', '28',                   # Balanced quality/file size for mobile data
+        '-pix_fmt', 'yuv420p',           # Maximum compatibility for mobile
+        '-crf', '28',                    # Balanced quality/file size for mobile data
         '-c:a', 'aac', 
         '-b:a', '128k', 
-        '-ac', '2',                     # Ensure stereo audio
+        '-ac', '2',                      # Ensure stereo audio
         '-movflags', '+faststart+frag_keyframe+empty_moov+default_base_moof', 
         output_pattern
     ]
@@ -63,7 +82,7 @@ async def process_video(video_path):
         return
 
     # Get the list of segments we just created
-    parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id)])
+    parts = sorted([f for f in os.listdir(segments_dir) if f.startswith(video_id) and f.endswith('.mp4')])
     
     if not parts:
         print("❌ Error: No segments were created. Check ffmpeg.")
@@ -75,7 +94,7 @@ async def process_video(video_path):
     try:
         subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
         subprocess.run(['git', 'add', '.'], check=True)
-        subprocess.run(['git', 'commit', '-m', f'Segments for {video_id}'], check=True)
+        subprocess.run(['git', 'commit', '-m', f'Segments and thumb for {video_id}'], check=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
         print("✅ GitHub Sync Complete!")
     except Exception as e:
@@ -99,12 +118,24 @@ async def process_video(video_path):
         )
         
         try:
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=f"📺 **Part {i+1}**\n⚡️ Optimized for Mobile",
-                reply_markup=keyboard,
-                parse_mode="Markdown"
-            )
+            # Check if thumbnail exists, send photo if yes, message if no
+            if thumb_path and os.path.exists(thumb_path):
+                photo = FSInputFile(thumb_path)
+                await bot.send_photo(
+                    chat_id=CHANNEL_ID,
+                    photo=photo,
+                    caption=f"📺 **Part {i+1}**\n⚡️ Optimized for Mobile",
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+            else:
+                await bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=f"📺 **Part {i+1}**\n⚡️ Optimized for Mobile",
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+                
             print(f"✅ Posted Part {i+1}/{len(parts)}")
             await asyncio.sleep(2.5) 
             
