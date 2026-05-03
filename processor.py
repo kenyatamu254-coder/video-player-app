@@ -4,12 +4,21 @@ import time
 import asyncio
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-TOKEN = '8738639794:AAHhkDQMRQQ9yCpnx1IiG5RKCwu7PwC7qYc' 
+load_dotenv()  # This loads the variables from your .env file
+
+# Pull the token from your hidden file instead of hardcoding it
+TOKEN = os.getenv('BOT_TOKEN') 
 CHANNEL_ID = -1003921891307 
 GITHUB_REPO_PATH = r'C:\Users\director\Documents\video-player-app' 
 BOT_USERNAME = "Kenya_Tamu_Bot" 
+
+# Safety check: make sure the token actually loaded
+if not TOKEN:
+    print("❌ Error: Could not find BOT_TOKEN in .env file!")
+    exit()
 
 bot = Bot(token=TOKEN)
 
@@ -29,18 +38,18 @@ async def process_video(video_path):
     # --- THE FIXED & OPTIMIZED FFMPEG COMMAND ---
     ffmpeg_command = [
         'ffmpeg', 
-        '-y',                          # Overwrite existing files
+        '-y',                           # Overwrite existing files
         '-i', video_path, 
         '-f', 'segment', 
         '-segment_time', '30', 
-        '-g', '60',                    # Keyframe every 2 seconds (assuming 30fps)
-        '-sc_threshold', '0',          # Force exact cuts at 30 seconds
+        '-g', '60',                     # Keyframe every 2 seconds (assuming 30fps)
+        '-sc_threshold', '0',           # Force exact cuts at 30 seconds
         '-c:v', 'libx264', 
-        '-pix_fmt', 'yuv420p',         # Maximum compatibility for mobile
-        '-crf', '28',                  # Balanced quality/file size for mobile data
+        '-pix_fmt', 'yuv420p',          # Maximum compatibility for mobile
+        '-crf', '28',                   # Balanced quality/file size for mobile data
         '-c:a', 'aac', 
         '-b:a', '128k', 
-        '-ac', '2',                    # Ensure stereo audio
+        '-ac', '2',                     # Ensure stereo audio
         '-movflags', '+faststart+frag_keyframe+empty_moov+default_base_moof', 
         output_pattern
     ]
