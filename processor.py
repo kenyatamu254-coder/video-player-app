@@ -32,25 +32,6 @@ async def process_video(video_path):
 
     print(f"🚀 Processing: {video_path}")
 
-    # --- NEW: GENERATE THUMBNAIL ---
-    thumb_path = os.path.join(segments_dir, f"{video_id}_thumb.jpg")
-    print("📸 Generating video thumbnail...")
-    thumb_command = [
-        'ffmpeg', 
-        '-y', 
-        '-ss', '00:00:01',            # Grab frame at the 1-second mark (avoids black starting frames)
-        '-i', video_path, 
-        '-vframes', '1',              # Only extract one frame
-        '-q:v', '2',                  # High quality output
-        thumb_path
-    ]
-    try:
-        subprocess.run(thumb_command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("✅ Thumbnail created successfully!")
-    except subprocess.CalledProcessError:
-        print("⚠️ Failed to generate thumbnail. The bot will proceed without it.")
-        thumb_path = None
-
     # Split into 30s segments with 3-digit padding (001, 002...)
     output_pattern = os.path.join(segments_dir, f"{video_id}_part_%03d.mp4")
 
@@ -88,13 +69,42 @@ async def process_video(video_path):
         print("❌ Error: No segments were created. Check ffmpeg.")
         return
 
+    # --- NEW: GENERATE UNIQUE PRO-QUALITY THUMBNAILS FOR EVERY PART ---
+    print("📸 Generating high-quality unique thumbnails for each part...")
+    part_thumbnails = {} # Dictionary to keep track of which thumbnail goes to which part
+    
+    for part_file in parts:
+        part_path = os.path.join(segments_dir, part_file)
+        thumb_name = part_file.replace('.mp4', '_thumb.jpg')
+        thumb_path = os.path.join(segments_dir, thumb_name)
+        
+        # Grab frame at the 2-second mark of each segment with highest JPEG quality (-q:v 1)
+        thumb_command = [
+            'ffmpeg', 
+            '-y', 
+            '-ss', '00:00:02',  
+            '-i', part_path, 
+            '-vframes', '1',    
+            '-q:v', '1',        # 1 is the highest possible quality setting for JPEGs
+            thumb_path
+        ]
+        
+        try:
+            subprocess.run(thumb_command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            part_thumbnails[part_file] = thumb_path
+        except subprocess.CalledProcessError:
+            print(f"⚠️ Failed to generate thumbnail for {part_file}.")
+            part_thumbnails[part_file] = None
+
+    print("✅ All unique thumbnails created!")
+
     # Push to GitHub
     print("☁️ Syncing with GitHub...")
     os.chdir(GITHUB_REPO_PATH)
     try:
         subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
         subprocess.run(['git', 'add', '.'], check=True)
-        subprocess.run(['git', 'commit', '-m', f'Segments and thumb for {video_id}'], check=True)
+        subprocess.run(['git', 'commit', '-m', f'Segments and unique thumbs for {video_id}'], check=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
         print("✅ GitHub Sync Complete!")
     except Exception as e:
@@ -118,9 +128,12 @@ async def process_video(video_path):
         )
         
         try:
+            # Get the specific thumbnail for this specific part
+            current_thumb_path = part_thumbnails.get(part_file)
+            
             # Check if thumbnail exists, send photo if yes, message if no
-            if thumb_path and os.path.exists(thumb_path):
-                photo = FSInputFile(thumb_path)
+            if current_thumb_path and os.path.exists(current_thumb_path):
+                photo = FSInputFile(current_thumb_path)
                 await bot.send_photo(
                     chat_id=CHANNEL_ID,
                     photo=photo,
@@ -136,7 +149,7 @@ async def process_video(video_path):
                     parse_mode="Markdown"
                 )
                 
-            print(f"✅ Posted Part {i+1}/{len(parts)}")
+            print(f"✅ Posted Part {i+1}/{len(parts)} with unique thumbnail")
             await asyncio.sleep(2.5) 
             
         except Exception as e:
