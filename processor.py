@@ -56,10 +56,12 @@ async def process_video(video_path):
 
     try:
         print("🎬 Running optimized video splitting...")
-        subprocess.run(ffmpeg_command, check=True)
+        # FIXED: Added capture_output and text to prevent terminal deadlocks on large files
+        subprocess.run(ffmpeg_command, check=True, capture_output=True, text=True)
         print("✅ Video segments created successfully!")
     except subprocess.CalledProcessError as e:
         print(f"❌ FFmpeg failed with error code: {e.returncode}")
+        print(f"Error details: {e.stderr}")
         return
 
     # Get the list of segments we just created
