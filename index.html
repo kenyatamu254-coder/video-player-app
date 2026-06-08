@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <title>Premium Video Player</title>
+    
+    <!-- Telegram Mini App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+    <!-- NEW OFFICIAL SDK -->
+    <script src="//libtl.com/sdk.js" data-zone="11118650" data-sdk="show_11118650"></script>
+    
     <style>
         :root {
             --bg-color: var(--tg-theme-bg-color, #111);
@@ -14,45 +18,13 @@
             --button-color: var(--tg-theme-button-color, #f39c12);
             --button-text: var(--tg-theme-button-text-color, #fff);
         }
-        
-        body { 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; padding: 20px; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; min-height: 90vh;
-        }
-
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; }
         h2 { font-weight: 600; text-align: center; margin-top: 0; }
-
-        #video-container {
-            width: 100%; max-width: 800px; aspect-ratio: 16 / 9;
-            background: #000; border-radius: 12px; overflow: hidden;
-            position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-            display: flex; justify-content: center; align-items: center;
-        }
-
+        #video-container { width: 100%; max-width: 800px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; }
         video { width: 100%; height: 100%; object-fit: contain; display: none; background: #000; }
-
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, rgba(15,15,15,0.95) 0%, rgba(30,30,30,0.9) 100%);
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 10; text-align: center;
-            padding: 20px; box-sizing: border-box;
-        }
-
-        #status-title { margin: 0 0 8px 0; font-size: 22px; font-weight: bold; }
-        #status-desc { color: #ccc; margin-bottom: 25px; font-size: 15px; line-height: 1.5; }
-        
-        .btn {
-            background: var(--button-color); color: var(--button-text); 
-            border: none; padding: 14px 32px; font-size: 16px; 
-            font-weight: bold; border-radius: 8px; cursor: pointer;
-            transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(15,15,15,0.95) 0%, rgba(30,30,30,0.9) 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; text-align: center; padding: 20px; box-sizing: border-box; }
+        .btn { background: var(--button-color); color: var(--button-text); border: none; padding: 14px 32px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .btn:disabled { background: #555; cursor: not-allowed; }
-        .btn.success { background: #27ae60; }
     </style>
 </head>
 <body>
@@ -63,66 +35,65 @@
         <div id="overlay">
             <h3 id="status-title">Video Locked</h3>
             <p id="status-desc">Support the channel by watching<br>a sponsor ad to unlock this video.</p>
-            <button id="unlockBtn" class="btn" onclick="showAdToUser()">▶ Unlock Video</button>
+            <button id="unlockBtn" class="btn" onclick="showAdToUser()">▶ Watch to Unlock</button>
         </div>
-
         <video id="video-player" controls controlsList="nodownload"></video>
     </div>
 
     <script>
-        // 1. Initialize Telegram Web App
+        // 1. Initialize
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
         }
 
-        // 2. Setup Logic
         const player = document.getElementById('video-player');
-        const unlockBtn = document.getElementById('unlockBtn');
         const overlay = document.getElementById('overlay');
+        const unlockBtn = document.getElementById('unlockBtn');
 
-        // Parse ID
+        // Parse URL Parameters
         const urlParams = new URLSearchParams(window.location.search);
         const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || urlParams.get('startapp');
         
         if (startParam) {
             const match = startParam.match(/vid_(.*)_part_(\d+)/);
             if (match) {
-                const videoUrl = `segments/${match[1].toLowerCase()}_part_${match[2].padStart(3, '0')}.mp4`;
-                player.src = videoUrl;
+                player.src = `segments/${match[1].toLowerCase()}_part_${match[2].padStart(3, '0')}.mp4`;
             }
         }
 
-        // 3. Ad Logic (Watch-to-Earn)
+        // 2. Watch-to-Earn Engine
         function showAdToUser() {
             unlockBtn.disabled = true;
-            unlockBtn.innerText = "⏳ Loading Sponsor...";
+            unlockBtn.innerText = "⏳ Loading Ad...";
 
-            // Inject Monetag Vignette Script dynamically to trigger ad
-            var s = document.createElement('script');
-            s.dataset.zone = '11118502';
-            s.src = 'https://n6wxm.com/vignette.min.js';
-            document.body.appendChild(s);
+            if (typeof show_11118650 === 'function') {
+                // Rewarded interstitial
+                show_11118650().then(() => {
+                    // User reward function executed after the user watches the ad
+                    console.log("Ad finished successfully!");
+                    unlockAndPlay();
+                });
 
-            // Start countdown timer to simulate "Rewarded" behavior
-            let countdown = 12; // 12 seconds gives time for the ad to load and be seen
-            const timer = setInterval(() => {
-                countdown--;
-                if (countdown > 0) {
-                    unlockBtn.innerText = `⏳ Watching Ad... (${countdown}s)`;
-                } else {
-                    clearInterval(timer);
-                    unlockBtn.innerText = "✅ Unlocked!";
-                    unlockBtn.classList.add('success');
-                    setTimeout(unlockAndPlay, 500);
-                }
-            }, 1000);
+                // Reset the button text after a short delay so the user can click again 
+                // if they closed the ad early or the SDK failed to show the ad.
+                setTimeout(() => {
+                    if (overlay.style.display !== 'none') {
+                        unlockBtn.disabled = false;
+                        unlockBtn.innerText = "▶ Watch to Unlock";
+                    }
+                }, 3000);
+            } else {
+                // Fallback for adblockers
+                console.warn("SDK failed to load");
+                unlockAndPlay();
+            }
         }
 
         function unlockAndPlay() {
             overlay.style.display = 'none';
             player.style.display = 'block';
-            player.play().catch(e => console.log("Play interrupted, user must press play"));
+            player.play().catch(e => console.log("User must click play manually."));
         }
     </script>
 </body>
