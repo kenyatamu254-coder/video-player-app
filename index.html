@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <meta name="monetag" content="c5ceda853a1d7abd8200e24858d1b0b1">
-    
     <title>Premium Video Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
+
     <style>
-        /* Automatically adapts to the user's Telegram theme */
         :root {
             --bg-color: var(--tg-theme-bg-color, #111);
             --text-color: var(--tg-theme-text-color, #fff);
@@ -22,38 +19,20 @@
             background-color: var(--bg-color); 
             color: var(--text-color); 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            min-height: 90vh;
+            margin: 0; padding: 20px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; min-height: 90vh;
         }
 
         h2 { font-weight: 600; text-align: center; margin-top: 0; }
 
         #video-container {
-            width: 100%; 
-            max-width: 800px; 
-            aspect-ratio: 16 / 9;
-            background: #000; 
-            border-radius: 12px; 
-            overflow: hidden;
-            position: relative; 
-            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
+            width: 100%; max-width: 800px; aspect-ratio: 16 / 9;
+            background: #000; border-radius: 12px; overflow: hidden;
+            position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            display: flex; justify-content: center; align-items: center;
         }
 
-        video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; 
-            display: none; 
-            background: #000; 
-        }
+        video { width: 100%; height: 100%; object-fit: contain; display: none; background: #000; }
 
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -67,21 +46,13 @@
         #status-desc { color: #ccc; margin-bottom: 25px; font-size: 15px; line-height: 1.5; }
         
         .btn {
-            background: var(--button-color); 
-            color: var(--button-text); 
-            border: none; 
-            padding: 14px 32px;
-            font-size: 16px; 
-            font-weight: bold; 
-            border-radius: 8px; 
-            cursor: pointer;
-            transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            background: var(--button-color); color: var(--button-text); 
+            border: none; padding: 14px 32px; font-size: 16px; 
+            font-weight: bold; border-radius: 8px; cursor: pointer;
+            transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
-
-        .btn:active { transform: scale(0.96); }
-        .btn:disabled { background: #555; cursor: not-allowed; opacity: 0.8; box-shadow: none; }
-        .btn.success { background: #27ae60; color: #fff; }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        .btn.success { background: #27ae60; }
     </style>
 </head>
 <body>
@@ -91,8 +62,7 @@
     <div id="video-container">
         <div id="overlay">
             <h3 id="status-title">Video Locked</h3>
-            <p id="status-desc">Support the channel by visiting<br>our sponsor to unlock this video.</p>
-            
+            <p id="status-desc">Support the channel by watching<br>a sponsor ad to unlock this video.</p>
             <button id="unlockBtn" class="btn" onclick="showAdToUser()">▶ Unlock Video</button>
         </div>
 
@@ -106,123 +76,53 @@
             window.Telegram.WebApp.expand();
         }
 
-        // ==========================================
-        // 2. MONETAG CONFIGURATION
-        // ✅ Your Live Direct Link is now successfully integrated
-        // ==========================================
-        const MONETAG_DIRECT_LINK = "https://omg10.com/4/11118010"; 
-        const REQUIRED_WAIT_TIME_SECONDS = 10; 
-        // ==========================================
+        // 2. Setup Logic
+        const player = document.getElementById('video-player');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const overlay = document.getElementById('overlay');
 
-        // 3. Parse Parameters
-        let videoId = null;
-        let partNum = null;
+        // Parse ID
         const urlParams = new URLSearchParams(window.location.search);
         const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || urlParams.get('startapp');
-
+        
         if (startParam) {
             const match = startParam.match(/vid_(.*)_part_(\d+)/);
             if (match) {
-                videoId = match[1].toLowerCase();
-                partNum = match[2];
+                const videoUrl = `segments/${match[1].toLowerCase()}_part_${match[2].padStart(3, '0')}.mp4`;
+                player.src = videoUrl;
             }
         }
 
-        const player = document.getElementById('video-player');
-        const overlayTitle = document.getElementById('status-title');
-        const overlayDesc = document.getElementById('status-desc');
-        const unlockBtn = document.getElementById('unlockBtn');
-
-        // 4. Setup Video Environment
-        if (videoId && partNum) {
-            const paddedPart = partNum.padStart(3, '0');
-            const videoUrl = `segments/${videoId}_part_${paddedPart}.mp4`;
-            
-            player.src = videoUrl; 
-            player.load();
-
-            player.onerror = function() {
-                overlayTitle.innerText = "❌ Video Not Found";
-                overlayDesc.innerHTML = `Unable to locate segment:<br><code style="color:#ff6b6b; margin-top:8px; display:inline-block;">${videoUrl}</code>`;
-                unlockBtn.style.display = 'none';
-            };
-        } else {
-            overlayTitle.innerText = "❌ Invalid Link";
-            overlayDesc.innerText = "Please open this player directly from the Telegram bot.";
-            unlockBtn.style.display = 'none';
-        }
-
-        // 5. Robust Playback Function
-        function unlockAndPlay() {
-            const overlay = document.getElementById('overlay');
-            
-            overlay.style.display = 'none';
-            player.style.display = 'block';
-            
-            try {
-                const playPromise = player.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        console.log("✅ Video started successfully.");
-                    }).catch(error => {
-                        console.log("⚠️ Auto-play interrupted. Attempting safe retry...", error);
-                        setTimeout(() => {
-                            const retryPromise = player.play();
-                            if (retryPromise !== undefined) {
-                                retryPromise.catch(e => {
-                                    console.log("❌ Auto-play completely blocked. User must click play.", e);
-                                    player.controls = true; 
-                                });
-                            }
-                        }, 500); 
-                    });
-                }
-            } catch (err) {
-                console.error("Critical player error:", err);
-                player.controls = true;
-            }
-        }
-
-        // 6. Monetag Ad Display Logic
+        // 3. Ad Logic (Watch-to-Earn)
         function showAdToUser() {
-            // Bypass if link isn't set yet
-            if (!MONETAG_DIRECT_LINK || MONETAG_DIRECT_LINK === "YOUR_MONETAG_DIRECT_LINK_HERE") {
-                console.warn("Monetag link not configured. Bypassing straight to video.");
-                unlockAndPlay();
-                return;
-            }
-
-            // Open the Monetag link. 
-            // We use Telegram's native openLink to ensure it works properly inside the Mini App.
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-                window.Telegram.WebApp.openLink(MONETAG_DIRECT_LINK);
-            } else {
-                window.open(MONETAG_DIRECT_LINK, '_blank');
-            }
-
-            // Start the rewarded countdown timer
-            let countdown = REQUIRED_WAIT_TIME_SECONDS;
             unlockBtn.disabled = true;
-            unlockBtn.innerText = `⌛ Checking Sponsor... (${countdown}s)`;
+            unlockBtn.innerText = "⏳ Loading Sponsor...";
 
+            // Inject Monetag Vignette Script dynamically to trigger ad
+            var s = document.createElement('script');
+            s.dataset.zone = '11118502';
+            s.src = 'https://n6wxm.com/vignette.min.js';
+            document.body.appendChild(s);
+
+            // Start countdown timer to simulate "Rewarded" behavior
+            let countdown = 12; // 12 seconds gives time for the ad to load and be seen
             const timer = setInterval(() => {
                 countdown--;
-                unlockBtn.innerText = `⌛ Checking Sponsor... (${countdown}s)`;
-
-                if (countdown <= 0) {
+                if (countdown > 0) {
+                    unlockBtn.innerText = `⏳ Watching Ad... (${countdown}s)`;
+                } else {
                     clearInterval(timer);
-                    unlockBtn.classList.add('success');
                     unlockBtn.innerText = "✅ Unlocked!";
-                    
-                    console.log("✅ Wait time finished! Rewarding user...");
-                    
-                    // Short delay so the user sees the "Unlocked!" message before the UI switches
-                    setTimeout(() => {
-                        unlockAndPlay(); 
-                    }, 800);
+                    unlockBtn.classList.add('success');
+                    setTimeout(unlockAndPlay, 500);
                 }
             }, 1000);
+        }
+
+        function unlockAndPlay() {
+            overlay.style.display = 'none';
+            player.style.display = 'block';
+            player.play().catch(e => console.log("Play interrupted, user must press play"));
         }
     </script>
 </body>
