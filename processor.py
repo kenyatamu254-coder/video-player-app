@@ -12,7 +12,7 @@ load_dotenv()  # This loads the variables from your .env file
 # Pull the token from your hidden file instead of hardcoding it
 TOKEN = os.getenv('BOT_TOKEN') 
 CHANNEL_ID = -1003921891307 
-GITHUB_REPO_PATH = r'C:\Users\director\Documents\video-player-app' 
+GITHUB_REPO_PATH = r'G:\Users\director\Documents\video-player-app' 
 BOT_USERNAME = "Kenya_Tamu_Bot" 
 
 # Safety check: make sure the token actually loaded
