@@ -38,18 +38,18 @@ async def process_video(video_path):
     # --- THE FIXED & OPTIMIZED FFMPEG COMMAND ---
     ffmpeg_command = [
         'ffmpeg', 
-        '-y',                            # Overwrite existing files
+        '-y',                         # Overwrite existing files
         '-i', video_path, 
         '-f', 'segment', 
         '-segment_time', '30', 
-        '-g', '60',                      # Keyframe every 2 seconds (assuming 30fps)
-        '-sc_threshold', '0',            # Force exact cuts at 30 seconds
+        '-g', '60',                    # Keyframe every 2 seconds (assuming 30fps)
+        '-sc_threshold', '0',          # Force exact cuts at 30 seconds
         '-c:v', 'libx264', 
         '-pix_fmt', 'yuv420p',           # Maximum compatibility for mobile
-        '-crf', '28',                    # Balanced quality/file size for mobile data
+        '-crf', '28',                  # Balanced quality/file size for mobile data
         '-c:a', 'aac', 
         '-b:a', '128k', 
-        '-ac', '2',                      # Ensure stereo audio
+        '-ac', '2',                    # Ensure stereo audio
         '-movflags', '+faststart+frag_keyframe+empty_moov+default_base_moof', 
         output_pattern
     ]
@@ -100,9 +100,18 @@ async def process_video(video_path):
 
     print("✅ All unique thumbnails created!")
 
-    # Push to GitHub
+    # Push to GitHub with automatic stale lock cleanup
     print("☁️ Syncing with GitHub...")
     os.chdir(GITHUB_REPO_PATH)
+    
+    lock_path = os.path.join(".git", "index.lock")
+    if os.path.exists(lock_path):
+        try:
+            os.remove(lock_path)
+            print("🧹 Cleared stale git lock file automatically.")
+        except Exception:
+            pass
+
     try:
         subprocess.run(['git', 'pull', 'origin', 'main'], check=False)
         subprocess.run(['git', 'add', '.'], check=True)
